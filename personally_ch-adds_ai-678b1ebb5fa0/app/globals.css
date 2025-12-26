@@ -1,0 +1,147 @@
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: var(--font-poppins), sans-serif;
+  --sidebar: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(240 5.3% 26.1%);
+  --sidebar-primary: hsl(240 5.9% 10%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+body {
+  @apply !text-gray-800;
+}
+
+.login-wrapper::before {
+  content: "";
+  @apply fixed bottom-0 left-0 w-[200px] h-[200px] bg-[url('./assets/images/login-shape-1.svg')] bg-no-repeat bg-[length:100%];
+}
+
+.login-wrapper::after {
+  content: "";
+  @apply fixed top-0 right-[120px] w-[200px] h-[200px] bg-[url('./assets/images/login-shape-2.svg')] bg-no-repeat bg-[length:100%];
+}
+
+.register-wrapper .left-panel::before {
+  content: "";
+  @apply fixed bottom-0 left-0 w-[200px] h-[200px] bg-[url('./assets/images/login-shape-1.svg')] bg-no-repeat bg-[length:100%];
+}
+
+.register-wrapper .left-panel::after {
+  content: "";
+  @apply absolute top-0 right-[40px] w-[200px] h-[200px] bg-[url('./assets/images/login-shape-2.svg')] bg-no-repeat bg-[length:100%];
+}
+
+@layer base {
+  [data-state="checked"] {
+    color: #ffffff !important;
+  }
+}
+
+.dropdown-item-hover {
+  @apply px-2 py-1.5 rounded hover:bg-gray-100 hover:text-gray-900 cursor-pointer;
+}
+
+.step {
+  @apply w-full px-3 py-3 rounded-xl border-2 border-transparent text-gray-900 bg-gray-100 font-medium relative text-center xl:text-left;
+}
+
+.step div {
+  @apply hidden xl:block;
+}
+
+.step:not(.active):not(.completed) span {
+  @apply text-gray-600;
+}
+
+.step.active {
+  @apply border-cyan-700 bg-primary/10 text-primary;
+}
+
+.step.completed {
+  @apply border-cyan-700 bg-cyan-700 text-white;
+}
+
+.step.completed::after {
+  content: "";
+  @apply absolute top-2 right-2 w-6 h-6 bg-[url('./assets/images/icons/check-completed.svg')] bg-no-repeat bg-[length:100%];
+}
+
+/* footer {
+    @apply hidden;
+} */
+
+/* body[data-scroll-locked] header, body[data-scroll-locked] .action-footer {
+  width: calc(100% - var(--removed-body-scroll-bar-size, 0px));
+} */
+
+.page-editor-container .tiptap-toolbar {
+  @apply !p-4  overflow-hidden !border !border-b !bg-gray-50 !border-solid !border-b-gray-200 rounded-xl;
+}
+.page-editor-container .simple-editor-content {
+  @apply !max-w-full;
+}
+.page-editor-container .simple-editor-content .tiptap.ProseMirror {
+  @apply !px-0;
+}
+
+.dark {
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+@theme inline {
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+[data-state="collapsed"] {
+  width: 0;
+  min-width: 0;
+  transition: all linear 0.2s;
+}
+
+[data-state="expanded"] {
+  width: 255px;
+  min-width: 255px;
+  transition: all linear 0.2s;
+}
+
+[data-slot="sidebar-container"] {
+  width: 255px;
+  min-width: 255px;
+}
+
+.validation-error {
+  @apply absolute bottom-[-20px] left-0;
+}
+.dropdown-text span {
+  @apply overflow-hidden text-ellipsis whitespace-nowrap;
+}
+@media screen and (max-width: 1024px) {
+  .step.completed::after {
+    display: none;
+  }
+}

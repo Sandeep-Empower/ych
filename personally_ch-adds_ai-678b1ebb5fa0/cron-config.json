@@ -1,0 +1,21 @@
+{
+  "name": "Daily Freestar Data Processing",
+  "description": "Processes Freestar data daily at 3 AM UTC",
+  "schedule": "0 3 * * *",
+  "endpoint": "https://yourdomain.com/api/cron/daily-freestar",
+  "method": "GET",
+  "headers": {
+    "Authorization": "Bearer YOUR_CRON_SECRET_TOKEN",
+    "Content-Type": "application/json"
+  },
+  "timeout": 300000,
+  "retry": {
+    "attempts": 3,
+    "delay": 60000
+  },
+  "notifications": {
+    "onSuccess": false,
+    "onFailure": true,
+    "webhook": "https://yourdomain.com/api/notifications/cron-failure"
+  }
+}

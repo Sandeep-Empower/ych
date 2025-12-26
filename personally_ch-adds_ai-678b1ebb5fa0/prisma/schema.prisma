@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String     @id @default(uuid())
+  email         String     @unique
+  password      String
+  created_at    DateTime   @default(now())
+  nicename      String?
+  roleId        String
+  status        Boolean    @default(true)
+  updated_at    DateTime   @updatedAt
+  companies     Company[]
+  sites         Site[]
+  role          Role       @relation(fields: [roleId], references: [id])
+  metas         UserMeta[]
+  sessions      UserSession[]
+}
+
+model UserMeta {
+  id         String   @id @default(uuid())
+  user_id    String
+  meta_key   String
+  meta_value String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, meta_key])
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  status      Boolean      @default(true)
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+  permissions Permission[]
+  users       User[]
+}
+
+model Permission {
+  id         String   @id @default(uuid())
+  name       String
+  roleId     String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  role       Role     @relation(fields: [roleId], references: [id])
+}
+
+model Site {
+  id           String        @id @default(uuid())
+  domain       String        @unique
+  site_name    String
+  status       Boolean       @default(true)
+  user_id      String
+  company_id   String
+  articles     Article[]
+  contacts     Contact[]
+  company      Company      @relation(fields: [company_id], references: [id])
+  user         User          @relation(fields: [user_id], references: [id])
+  site_meta    SiteMeta[]
+  static_pages StaticPage[]
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+}
+
+model SiteMeta {
+  id         String   @id @default(uuid())
+  site_id    String
+  meta_key   String
+  meta_value String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  site       Site     @relation(fields: [site_id], references: [id])
+
+  @@unique([site_id, meta_key])
+}
+
+model Article {
+  id               String       @id @default(uuid())
+  title            String
+  content          String
+  created_at       DateTime     @default(now())
+  image_url        String?
+  meta_description String?
+  meta_keywords    String?
+  meta_title       String?
+  published        Boolean      @default(false)
+  site_id          String
+  slug             String
+  status           Boolean      @default(true)
+  updated_at       DateTime     @updatedAt
+  site             Site         @relation(fields: [site_id], references: [id])
+  article_tags     ArticleTag[]
+
+  @@unique([site_id, slug])
+}
+
+model StaticPage {
+  id         String         @id @default(uuid())
+  content    String?
+  created_at DateTime       @default(now())
+  data       Json?
+  page_type  StaticPageType
+  site_id    String
+  status     Boolean        @default(true)
+  title      String
+  updated_at DateTime       @updatedAt
+  site       Site           @relation(fields: [site_id], references: [id])
+
+  @@unique([site_id, page_type])
+}
+
+model Tag {
+  id           String       @id @default(uuid())
+  name         String
+  slug         String       @unique
+  description  String?
+  status       Boolean      @default(true)
+  created_at   DateTime     @default(now())
+  updated_at   DateTime     @updatedAt
+  article_tags ArticleTag[]
+}
+
+model ArticleTag {
+  id         String   @id @default(uuid())
+  tag_id     String
+  article_id String
+  status     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  article    Article  @relation(fields: [article_id], references: [id])
+  tag        Tag      @relation(fields: [tag_id], references: [id])
+}
+
+model Contact {
+  id         String   @id @default(uuid())
+  site_id    String
+  name       String
+  email      String
+  subject    String
+  message    String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  site       Site     @relation(fields: [site_id], references: [id])
+}
+
+model Company {
+  id         String   @id @default(uuid())
+  name       String
+  phone      String
+  email      String
+  address    String
+  vat        String
+  user_id    String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  status     Boolean  @default(true)
+  user       User     @relation(fields: [user_id], references: [id])
+  sites      Site[]
+}
+
+model FreestarYsmTypecodes {
+  id         String   @id @default(uuid())
+  c_site     String   @db.VarChar(35)
+  c_market   String   @db.VarChar(11)
+  c_network  String   @db.VarChar(25)
+  c_campaign String   @db.VarChar(50)
+  c_adgroup  String   @db.VarChar(50)
+  c_supplier String   @db.VarChar(25)
+  keyword    String   @db.VarChar(100)
+  feed       String   @db.VarChar(25)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([c_site, c_market, c_network, c_campaign, c_adgroup, c_supplier, keyword, feed])
+}
+
+model ImpFreestarYsmDaily {
+  date                  DateTime @db.Date
+  site_domain          String   @db.VarChar(255)
+  traffic_source_name  String   @db.VarChar(255)
+  traffic_source_code  String   @db.VarChar(50)
+  product              String   @db.VarChar(255)
+  market               String   @db.VarChar(255)
+  source_tag           String   @db.VarChar(255)
+  type_tag             String   @db.VarChar(255)
+  device_type          String   @db.VarChar(50)
+  ad_type              String   @db.VarChar(50)
+  searches             Int
+  bidded_searches      Int
+  bidded_results       Int
+  bidded_clicks        Int
+  partner_net_revenue  Decimal  @db.Decimal(18, 5)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  @@id([date, site_domain, traffic_source_code, type_tag, device_type, ad_type])
+}
+
+model ImpFreestarYsmHourly {
+  date                  DateTime @db.Date
+  hour                  Int
+  site_domain          String   @db.VarChar(255)
+  traffic_source_name  String   @db.VarChar(255)
+  traffic_source_code  String   @db.VarChar(50)
+  product              String   @db.VarChar(255)
+  market               String   @db.VarChar(255)
+  source_tag           String   @db.VarChar(255)
+  type_tag             String   @db.VarChar(255)
+  device_type          String   @db.VarChar(50)
+  ad_type              String   @db.VarChar(50)
+  searches             Int
+  bidded_searches      Int
+  bidded_results       Int
+  bidded_clicks        Int
+  partner_net_revenue  Decimal  @db.Decimal(18, 5)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  @@id([date, hour, site_domain, traffic_source_code, type_tag, device_type, ad_type])
+}
+
+model UserSession {
+  id            String   @id @default(uuid())
+  user_id       String
+  refresh_token String   @unique
+  device_info   String?  // Browser, device type, etc.
+  ip_address    String?
+  created_at    DateTime @default(now())
+  expires_at    DateTime
+  is_active     Boolean  @default(true)
+  user          User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([refresh_token])
+  @@index([expires_at])
+}
+
+enum StaticPageType {
+  HOME
+  ABOUT
+  PRIVACY
+  ADVERTISE
+  CONTACT
+  TERMS
+}

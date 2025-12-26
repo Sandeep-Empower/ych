@@ -1,0 +1,75 @@
+.ai-animated-border {
+  position: relative;
+  z-index: 0;
+  overflow: visible;
+  border: 2px solid transparent;
+  background: white;
+}
+
+.ai-animated-border::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: calc(0.5rem + 2px);
+  padding: 2px;
+  background: linear-gradient(
+    270deg,
+    #00e0ff,
+    #8f00ff,
+    #ff0080,
+    #ffbe00,
+    #00e0ff
+  );
+  background-size: 400% 400%;
+  animation: ai-border-gradient 6s ease-in-out infinite;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: subtract;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+@keyframes ai-border-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.ai-animated-text {
+  background: linear-gradient(
+    270deg,
+    #00e0ff,
+    #8f00ff,
+    #ff0080,
+    #ffbe00,
+    #00e0ff
+  );
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  animation: ai-text-gradient 6s ease-in-out infinite;
+}
+
+@keyframes ai-text-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

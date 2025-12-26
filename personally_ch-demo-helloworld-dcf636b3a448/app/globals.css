@@ -1,0 +1,26 @@
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 255, 255, 255;
+}
+
+body {
+  font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+}
+
+.prose :where(a):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  @apply text-primary-500 hover:text-primary-800;
+}
+.prose-lg :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  @apply mb-5;
+} 
+
+
