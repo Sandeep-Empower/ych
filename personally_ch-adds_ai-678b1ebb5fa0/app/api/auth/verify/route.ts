@@ -71,7 +71,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+    // SECURITY: Fail if JWT_SECRET is not configured
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET environment variable is not configured');
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const { payload } = await jwtVerify(token, secret);
     const userData = payload as { userId: string, email: string, iat: number, exp: number };
 

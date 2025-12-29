@@ -1,31 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
+import { requireAuth, isValidUUID } from '@/lib/security';
 
 export async function DELETE(req: NextRequest) {
 	try {
+		// SECURITY: Require authentication
+		const auth = requireAuth(req);
+		if (auth instanceof NextResponse) {
+			return auth;
+		}
+		const { userId } = auth;
+
 		const { searchParams } = new URL(req.url);
 		const id = searchParams.get('id');
 
 		if (!id) {
-			return NextResponse.json({ 
-				success: false, 
-				error: 'Company ID is required' 
+			return NextResponse.json({
+				success: false,
+				error: 'Company ID is required'
 			}, { status: 400 });
 		}
 
-		// Get token from cookies for authorization
-		const token = req.cookies.get('token')?.value;
-		if (!token) {
-			return NextResponse.json({ 
-				success: false, 
-				error: 'Unauthorized' 
-			}, { status: 401 });
+		// SECURITY: Validate company ID format
+		if (!isValidUUID(id)) {
+			return NextResponse.json({
+				success: false,
+				error: 'Invalid company ID format'
+			}, { status: 400 });
 		}
-
-		// Verify token and get user ID
-		const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { userId: string };
-		const userId = decoded.userId;
 
 		// Check if company exists and user has permission
 		const existingCompany = await prisma.company.findUnique({
@@ -124,13 +126,11 @@ export async function DELETE(req: NextRequest) {
 	} catch (error) {
 		console.error('Error deleting company:', error);
 		return NextResponse.json(
-			{ 
-				success: false, 
-				error: 'Failed to delete company' 
-			}, 
+			{
+				success: false,
+				error: 'Failed to delete company'
+			},
 			{ status: 500 }
 		);
-	} finally {
-		await prisma.$disconnect();
 	}
 } 

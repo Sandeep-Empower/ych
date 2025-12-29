@@ -1,39 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
+import { requireAuth, isValidUUID } from '@/lib/security';
 
 export async function PUT(req: NextRequest) {
 	try {
+		// SECURITY: Require authentication
+		const auth = requireAuth(req);
+		if (auth instanceof NextResponse) {
+			return auth;
+		}
+		const { userId } = auth;
+
 		const body = await req.json();
 		const { id, name, phone, email, address, vat, status } = body;
 
 		// Validate required fields
 		if (!id) {
-			return NextResponse.json({ 
-				success: false, 
-				error: 'Company ID is required' 
+			return NextResponse.json({
+				success: false,
+				error: 'Company ID is required'
+			}, { status: 400 });
+		}
+
+		// SECURITY: Validate company ID format
+		if (!isValidUUID(id)) {
+			return NextResponse.json({
+				success: false,
+				error: 'Invalid company ID format'
 			}, { status: 400 });
 		}
 
 		if (!name || !phone || !email || !address) {
-			return NextResponse.json({ 
-				success: false, 
-				error: 'Name, phone, email, and address are required' 
+			return NextResponse.json({
+				success: false,
+				error: 'Name, phone, email, and address are required'
 			}, { status: 400 });
 		}
-
-		// Get token from cookies for authorization
-		const token = req.cookies.get('token')?.value;
-		if (!token) {
-			return NextResponse.json({ 
-				success: false, 
-				error: 'Unauthorized' 
-			}, { status: 401 });
-		}
-
-		// Verify token and get user ID
-		const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { userId: string };
-		const userId = decoded.userId;
 
 		// Check if company exists and user has permission
 		const existingCompany = await prisma.company.findUnique({
@@ -109,13 +111,11 @@ export async function PUT(req: NextRequest) {
 	} catch (error) {
 		console.error('Error updating company:', error);
 		return NextResponse.json(
-			{ 
-				success: false, 
-				error: 'Failed to update company' 
-			}, 
+			{
+				success: false,
+				error: 'Failed to update company'
+			},
 			{ status: 500 }
 		);
-	} finally {
-		await prisma.$disconnect();
 	}
 } 

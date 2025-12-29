@@ -3,7 +3,11 @@ interface OTPData {
   otp: string;
   timestamp: number;
   email: string;
+  attempts: number; // SECURITY: Track verification attempts
 }
+
+// SECURITY: Maximum allowed verification attempts before lockout
+const MAX_OTP_ATTEMPTS = 3;
 
 // Global store that persists across requests in the same Node.js process
 declare global {
@@ -53,11 +57,12 @@ class OTPStore {
     const data: OTPData = {
       otp,
       timestamp: Date.now(),
-      email: normalizedEmail
+      email: normalizedEmail,
+      attempts: 0 // SECURITY: Reset attempts when new OTP is generated
     };
 
     this.store.set(normalizedEmail, data);
-    console.log(`OTP stored for ${email}: ${otp} at ${new Date(data.timestamp).toISOString()}`);
+    console.log(`OTP stored for ${email} at ${new Date(data.timestamp).toISOString()}`);
     console.log(`Current store size: ${this.store.size}`);
   }
 
@@ -67,7 +72,6 @@ class OTPStore {
 
     if (!data) {
       console.log(`No OTP data found for ${normalizedEmail}`);
-      console.log(`Current store contents:`, Array.from(this.store.keys()));
       return undefined;
     }
 
@@ -79,8 +83,52 @@ class OTPStore {
       return undefined;
     }
 
-    console.log(`Retrieved OTP for ${normalizedEmail}: ${data.otp}`);
     return data.otp;
+  }
+
+  // SECURITY: Verify OTP with attempt limiting
+  verify(email: string, inputOtp: string): { valid: boolean; error?: string } {
+    const normalizedEmail = email.toLowerCase().trim();
+    const data = this.store.get(normalizedEmail);
+
+    if (!data) {
+      return { valid: false, error: 'No OTP found for this email. Please request a new OTP.' };
+    }
+
+    // Check if OTP is expired (10 minutes)
+    const isExpired = Date.now() - data.timestamp > 10 * 60 * 1000;
+    if (isExpired) {
+      this.store.delete(normalizedEmail);
+      return { valid: false, error: 'OTP has expired. Please request a new OTP.' };
+    }
+
+    // SECURITY: Check if max attempts exceeded
+    if (data.attempts >= MAX_OTP_ATTEMPTS) {
+      this.store.delete(normalizedEmail);
+      return { valid: false, error: 'Too many failed attempts. Please request a new OTP.' };
+    }
+
+    // Compare OTPs
+    const receivedOtp = String(inputOtp).trim();
+    const storedOtp = String(data.otp).trim();
+
+    if (receivedOtp === storedOtp) {
+      this.store.delete(normalizedEmail);
+      console.log(`OTP verified successfully for ${normalizedEmail}`);
+      return { valid: true };
+    }
+
+    // Increment attempt counter
+    data.attempts++;
+    const remainingAttempts = MAX_OTP_ATTEMPTS - data.attempts;
+
+    if (remainingAttempts <= 0) {
+      this.store.delete(normalizedEmail);
+      return { valid: false, error: 'Too many failed attempts. Please request a new OTP.' };
+    }
+
+    console.log(`Invalid OTP for ${normalizedEmail}. Attempts: ${data.attempts}/${MAX_OTP_ATTEMPTS}`);
+    return { valid: false, error: `Invalid OTP. ${remainingAttempts} attempt(s) remaining.` };
   }
 
   delete(email: string): boolean {

@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, isValidUUID } from "@/lib/security";
 
 /**
  * @swagger
@@ -98,13 +99,30 @@ import { prisma } from "@/lib/prisma";
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
+    // SECURITY: Require authentication
+    const auth = requireAuth(req);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+    const authenticatedUserId = auth.userId;
+
     const { searchParams } = new URL(req.url);
     const userId = searchParams?.get("userId");
 
     if (!userId) {
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    }
+
+    // SECURITY: Validate userId format
+    if (!isValidUUID(userId)) {
+      return NextResponse.json({ error: "Invalid userId format" }, { status: 400 });
+    }
+
+    // SECURITY: Users can only access their OWN profile (IDOR protection)
+    if (userId !== authenticatedUserId) {
+      return NextResponse.json({ error: "Unauthorized - You can only access your own profile" }, { status: 403 });
     }
 
     const user = await prisma.user.findUnique({
@@ -161,13 +179,30 @@ export async function GET(req: Request) {
   }
 }
 
-export async function PATCH(req: Request) {
+export async function PATCH(req: NextRequest) {
   try {
+    // SECURITY: Require authentication
+    const auth = requireAuth(req);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+    const authenticatedUserId = auth.userId;
+
     const body = await req.json();
     const { userId, personalInfo, companyInfo } = body;
 
     if (!userId) {
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    }
+
+    // SECURITY: Validate userId format
+    if (!isValidUUID(userId)) {
+      return NextResponse.json({ error: "Invalid userId format" }, { status: 400 });
+    }
+
+    // SECURITY: Users can only modify their OWN profile (IDOR protection)
+    if (userId !== authenticatedUserId) {
+      return NextResponse.json({ error: "Unauthorized - You can only modify your own profile" }, { status: 403 });
     }
 
     if (!personalInfo && !companyInfo) {

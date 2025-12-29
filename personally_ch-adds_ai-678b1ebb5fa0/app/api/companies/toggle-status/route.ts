@@ -1,38 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
+import { requireAuth, isValidUUID } from '@/lib/security';
 
 export async function PUT(req: NextRequest) {
 	try {
+		// SECURITY: Require authentication
+		const auth = requireAuth(req);
+		if (auth instanceof NextResponse) {
+			return auth;
+		}
+		const { userId } = auth;
+
 		const body = await req.json();
 		const { id, status } = body;
 
 		if (!id) {
-			return NextResponse.json({ 
-				success: false, 
-				error: 'Company ID is required' 
+			return NextResponse.json({
+				success: false,
+				error: 'Company ID is required'
+			}, { status: 400 });
+		}
+
+		// SECURITY: Validate company ID format
+		if (!isValidUUID(id)) {
+			return NextResponse.json({
+				success: false,
+				error: 'Invalid company ID format'
 			}, { status: 400 });
 		}
 
 		if (typeof status !== 'boolean') {
-			return NextResponse.json({ 
-				success: false, 
-				error: 'Status must be a boolean value' 
+			return NextResponse.json({
+				success: false,
+				error: 'Status must be a boolean value'
 			}, { status: 400 });
 		}
-
-		// Get token from cookies for authorization
-		const token = req.cookies.get('token')?.value;
-		if (!token) {
-			return NextResponse.json({ 
-				success: false, 
-				error: 'Unauthorized' 
-			}, { status: 401 });
-		}
-
-		// Verify token and get user ID
-		const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { userId: string };
-		const userId = decoded.userId;
 
 		// Check if company exists and user has permission
 		const existingCompany = await prisma.company.findUnique({
@@ -124,13 +126,11 @@ export async function PUT(req: NextRequest) {
 	} catch (error) {
 		console.error('Error toggling company status:', error);
 		return NextResponse.json(
-			{ 
-				success: false, 
-				error: 'Failed to update company status' 
-			}, 
+			{
+				success: false,
+				error: 'Failed to update company status'
+			},
 			{ status: 500 }
 		);
-	} finally {
-		await prisma.$disconnect();
 	}
 } 

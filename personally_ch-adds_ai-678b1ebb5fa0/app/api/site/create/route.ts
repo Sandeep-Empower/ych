@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import {
   createCloudflareDNSRecord,
   getCloudflareDomainZoneID,
@@ -14,6 +13,7 @@ import {
 import { uploadToSpaces } from "@/lib/do-spaces";
 import { prisma } from "@/lib/prisma";
 import sharp from "sharp";
+import { requireAuth, validateDomain } from "@/lib/security";
 
 // Helper function to check if DNS A record is propagated
 async function checkDNSPropagation(
@@ -268,8 +268,15 @@ async function cleanupOnFailure(
  */
 export async function POST(req: NextRequest) {
   try {
+    // SECURITY: Require authentication
+    const auth = requireAuth(req);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+    const { userId } = auth;
+
     const formData = await req.formData();
-    let domain = (formData.get("domain") as string).toLowerCase().trim();
+    let domain = (formData.get("domain") as string)?.toLowerCase().trim();
     const siteName = formData.get("siteName") as string;
     const tagline = formData.get("tagline") as string;
     const logo = formData.get("logo") as File;
@@ -285,22 +292,6 @@ export async function POST(req: NextRequest) {
     const cloudflareStatus = formData.get("isCloudflare") as string;
     const isCloudflare = cloudflareStatus === "true";
 
-    // Get token from cookies
-    const token = req.cookies.get("token")?.value;
-    if (!token) {
-      return NextResponse.json(
-        { error: { unauthorized: "Unauthorized" } },
-        { status: 401 }
-      );
-    }
-
-    // Verify token and get user ID
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "your-secret-key"
-    ) as { userId: string };
-    const userId = decoded.userId;
-
     // Validate required fields
     if (!domain) {
       return NextResponse.json(
@@ -308,6 +299,17 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // SECURITY: Validate domain format
+    const domainValidation = validateDomain(domain);
+    if (!domainValidation.isValid) {
+      return NextResponse.json(
+        { error: { domain: domainValidation.error } },
+        { status: 400 }
+      );
+    }
+    domain = domainValidation.sanitized!;
+
     if (process.env.APP_ENV === "staging") {
       domain = `dev.${domain}`;
     }

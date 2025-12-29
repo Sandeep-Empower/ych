@@ -200,8 +200,6 @@ export async function GET(req: NextRequest) {
 			},
 			{ status: 500 }
 		);
-	} finally {
-		await prisma.$disconnect();
 	}
 }
 

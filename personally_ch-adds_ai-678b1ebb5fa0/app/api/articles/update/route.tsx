@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { uploadToSpaces } from '@/lib/do-spaces';
+import { requireAuth, isValidUUID } from '@/lib/security';
 
 export const config = {
 	api: {
@@ -25,6 +26,13 @@ async function generateUniqueSlug(baseSlug: string, siteId: string, articleId: s
 
 export async function POST(req: NextRequest) {
 	try {
+		// SECURITY: Require authentication
+		const auth = requireAuth(req);
+		if (auth instanceof NextResponse) {
+			return auth;
+		}
+		const { userId } = auth;
+
 		// Parse form data (for file upload)
 		const formData = await req.formData();
 		const content = formData.get('content') as string;
@@ -37,6 +45,25 @@ export async function POST(req: NextRequest) {
 
 		if (!title || !siteId || !articleId) {
 			return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+		}
+
+		// SECURITY: Validate IDs format
+		if (!isValidUUID(siteId) || !isValidUUID(articleId)) {
+			return NextResponse.json({ error: 'Invalid ID format' }, { status: 400 });
+		}
+
+		// SECURITY: Verify user owns the article's site
+		const article = await prisma.article.findUnique({
+			where: { id: articleId },
+			include: { site: { select: { user_id: true } } }
+		});
+
+		if (!article) {
+			return NextResponse.json({ error: 'Article not found' }, { status: 404 });
+		}
+
+		if (article.site.user_id !== userId) {
+			return NextResponse.json({ error: 'Unauthorized - You do not own this article' }, { status: 403 });
 		}
 
 		// Generate slug from title

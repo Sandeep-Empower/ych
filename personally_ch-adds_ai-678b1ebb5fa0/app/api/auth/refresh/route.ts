@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 
+// SECURITY: Get JWT secret with no fallback (fail-fast if not configured)
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not configured');
+  }
+  return secret;
+}
+
+function getJwtRefreshSecret(): string {
+  const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_REFRESH_SECRET or JWT_SECRET environment variable is not configured');
+  }
+  return secret;
+}
+
 /**
  * @swagger
  * /api/auth/refresh:
@@ -88,11 +105,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Refresh token is required' }, { status: 400 });
     }
 
-    // Verify the refresh token
-    const decoded = jwt.verify(
-      refreshToken,
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-refresh-secret-key'
-    ) as { userId: string; email: string };
+    // SECURITY: Verify the refresh token (no fallback secret)
+    const decoded = jwt.verify(refreshToken, getJwtRefreshSecret()) as { userId: string; email: string };
 
     // Check if the session exists and is active
     const session = await prisma.userSession.findFirst({
@@ -120,17 +134,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired refresh token' }, { status: 401 });
     }
 
-    // Generate new access token
+    // SECURITY: Generate new access token (no fallback secret)
     const newAccessToken = jwt.sign(
       { userId: decoded.userId, email: decoded.email },
-      process.env.JWT_SECRET || 'your-secret-key',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 
-    // Generate new refresh token
+    // SECURITY: Generate new refresh token (no fallback secret)
     const newRefreshToken = jwt.sign(
       { userId: decoded.userId, email: decoded.email },
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-refresh-secret-key',
+      getJwtRefreshSecret(),
       { expiresIn: '30d' }
     );
 

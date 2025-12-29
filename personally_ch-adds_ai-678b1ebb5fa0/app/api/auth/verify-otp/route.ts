@@ -1,9 +1,16 @@
 // app/api/auth/verify-otp/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { otpStore } from '@/lib/otpStore';
+import { rateLimitMiddleware, RATE_LIMITS } from '@/lib/security';
 
 export async function POST(req: NextRequest) {
   try {
+    // SECURITY: Apply rate limiting to prevent brute force
+    const rateLimitResponse = rateLimitMiddleware(req, RATE_LIMITS.otp, 'verify-otp');
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { email, otp } = await req.json();
 
     // Validate input
@@ -15,32 +22,15 @@ export async function POST(req: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim();
 
     console.log(`Verifying OTP for email: ${normalizedEmail}`);
-    console.log(`Received OTP: ${otp}`);
 
-    const validOtp = otpStore.get(normalizedEmail);
-    console.log(`Stored OTP for ${normalizedEmail}:`, validOtp);
+    // SECURITY: Use the verify method with built-in attempt limiting
+    const result = otpStore.verify(normalizedEmail, otp);
 
-    if (!validOtp) {
-      console.log(`No OTP found for email: ${normalizedEmail}`);
-      return NextResponse.json({
-        message: 'No OTP found for this email. Please request a new OTP.'
-      }, { status: 400 });
-    }
-
-    // Convert both to strings and trim whitespace for comparison
-    const receivedOtp = String(otp).trim();
-    const storedOtp = String(validOtp).trim();
-
-    console.log(`Comparing OTPs - Received: "${receivedOtp}", Stored: "${storedOtp}"`);
-
-    if (receivedOtp === storedOtp) {
-      otpStore.delete(normalizedEmail);
-      console.log(`OTP verified successfully for ${normalizedEmail}`);
+    if (result.valid) {
       return NextResponse.json({ message: 'OTP verified successfully' });
     }
 
-    console.log(`OTP mismatch for ${normalizedEmail}`);
-    return NextResponse.json({ message: 'Invalid OTP. Please try again.' }, { status: 400 });
+    return NextResponse.json({ message: result.error }, { status: 400 });
 
   } catch (error) {
     console.error('Error verifying OTP:', error);

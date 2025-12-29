@@ -1,5 +1,11 @@
 "use server"
 
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { validateDomain } from './security';
+
+const execFileAsync = promisify(execFile);
+
 /**
  * Verify if a domain exists in Cloudflare.
  * @param {string} domain - The domain to verify.
@@ -142,45 +148,52 @@ export async function removeCloudflareDNSRecord(zoneID: string|boolean, dnsID: s
  * @return {Promise<boolean>} - Returns true if SSL is removed, false otherwise.
  */
 export async function removeServerSSL(domain: string): Promise<boolean> {
+    // SECURITY: Validate domain BEFORE any command execution
+    const validation = validateDomain(domain);
+    if (!validation.isValid) {
+        console.error(`SSL removal rejected - invalid domain: ${validation.error}`);
+        return false;
+    }
+
+    const safeDomain = validation.sanitized!;
+
     try {
-        console.log(`Removing SSL certificate from server for domain: ${domain}`);
-        
+        console.log(`Removing SSL certificate from server for domain: ${safeDomain}`);
+
         // Step 1: Revoke the existing certificate
-        const { exec } = require('child_process');
-        
-        // Revoke certificate
-        const revokeCommand = `sudo certbot revoke --cert-path /etc/letsencrypt/live/${domain}/fullchain.pem --reason cessation_of_operation`;
-        
-        await new Promise((resolve, reject) => {
-            exec(revokeCommand, (error: any, stdout: string, stderr: string) => {
-                if (error) {
-                    console.warn(`Warning: Failed to revoke certificate for ${domain}:`, error.message);
-                    // Continue with deletion even if revocation fails
-                } else {
-                    console.log(`Certificate revoked successfully for ${domain}`);
-                }
-                resolve(true);
-            });
-        });
-        
+        // SECURITY: Use execFile instead of exec - arguments are NOT shell-interpreted
+        try {
+            await execFileAsync('sudo', [
+                'certbot',
+                'revoke',
+                '--cert-path', `/etc/letsencrypt/live/${safeDomain}/fullchain.pem`,
+                '--reason', 'cessation_of_operation',
+                '--non-interactive'
+            ]);
+            console.log(`Certificate revoked successfully for ${safeDomain}`);
+        } catch (revokeError: any) {
+            console.warn(`Warning: Failed to revoke certificate for ${safeDomain}:`, revokeError.message);
+            // Continue with deletion even if revocation fails
+        }
+
         // Step 2: Delete the certificate
-        const deleteCommand = `sudo certbot delete --cert-name ${domain}`;
-        
-        await new Promise((resolve, reject) => {
-            exec(deleteCommand, (error: any, stdout: string, stderr: string) => {
-                if (error) {
-                    console.error(`Error deleting certificate for ${domain}:`, error.message);
-                    reject(error);
-                } else {
-                    console.log(`Certificate deleted successfully for ${domain}`);
-                    resolve(true);
-                }
-            });
-        });
-        
-        console.log(`SSL certificate removal completed for domain: ${domain}`);
+        // SECURITY: Use execFile instead of exec
+        try {
+            await execFileAsync('sudo', [
+                'certbot',
+                'delete',
+                '--cert-name', safeDomain,
+                '--non-interactive'
+            ]);
+            console.log(`Certificate deleted successfully for ${safeDomain}`);
+        } catch (deleteError: any) {
+            console.error(`Error deleting certificate for ${safeDomain}:`, deleteError.message);
+            return false;
+        }
+
+        console.log(`SSL certificate removal completed for domain: ${safeDomain}`);
         return true;
-        
+
     } catch (error) {
         console.error('Error removing SSL certificate from server:', error);
         return false;

@@ -99,7 +99,5 @@ export async function POST(req: NextRequest) {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getJwtSecret } from '@/lib/security';
+
+// SECURITY: Get JWT refresh secret with no fallback
+function getJwtRefreshSecret(): string {
+  const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_REFRESH_SECRET or JWT_SECRET environment variable is not configured');
+  }
+  return secret;
+}
 
 /**
  * @swagger
@@ -83,12 +93,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Refresh token is required' }, { status: 400 });
     }
 
-    // Verify the refresh token to get user ID
+    // SECURITY: Verify the refresh token to get user ID (no fallback secret)
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(
-      refreshToken,
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-refresh-secret-key'
-    ) as { userId: string };
+    const decoded = jwt.verify(refreshToken, getJwtRefreshSecret()) as { userId: string };
 
     if (logoutAll) {
       // Logout from all devices - deactivate all sessions for the user

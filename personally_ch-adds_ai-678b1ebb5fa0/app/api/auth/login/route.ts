@@ -2,6 +2,24 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
+import { rateLimitMiddleware, RATE_LIMITS, getClientIp } from '@/lib/security';
+
+// SECURITY: Get JWT secret with no fallback (fail-fast if not configured)
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not configured');
+  }
+  return secret;
+}
+
+function getJwtRefreshSecret(): string {
+  const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_REFRESH_SECRET or JWT_SECRET environment variable is not configured');
+  }
+  return secret;
+}
 
 /**
  * @swagger
@@ -81,6 +99,16 @@ import { prisma } from '@/lib/prisma';
  */
 export async function POST(request: Request) {
   try {
+    // SECURITY: Apply rate limiting to prevent brute force attacks
+    const rateLimitResponse = rateLimitMiddleware(
+      request as any,
+      RATE_LIMITS.login,
+      'login'
+    );
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { userEmail, password } = await request.json();
 
     if (!userEmail || !password) {
@@ -114,17 +142,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
     }
 
-    // Create access token with longer expiration (7 days for development)
+    // SECURITY: Create access token using secure secret (no hardcoded fallback)
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'your-secret-key',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 
-    // Create refresh token (30 days)
+    // SECURITY: Create refresh token using secure secret (no hardcoded fallback)
     let refreshToken = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-refresh-secret-key',
+      getJwtRefreshSecret(),
       { expiresIn: '30d' }
     );
 
@@ -151,7 +179,7 @@ export async function POST(request: Request) {
         // Generate a new unique refresh token and retry
         const newRefreshToken = jwt.sign(
           { userId: user.id, email: user.email, timestamp: Date.now() },
-          process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-refresh-secret-key',
+          getJwtRefreshSecret(),
           { expiresIn: '30d' }
         );
         

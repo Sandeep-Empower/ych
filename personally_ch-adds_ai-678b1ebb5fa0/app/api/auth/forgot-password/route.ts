@@ -4,12 +4,19 @@ import sgMail from "@sendgrid/mail";
 import crypto from "crypto";
 import { otpStore } from "@/lib/otpStore";
 import { prisma } from "@/lib/prisma";
+import { rateLimitMiddleware, RATE_LIMITS } from "@/lib/security";
 
 // Initialize SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
+    // SECURITY: Apply rate limiting to prevent OTP flooding
+    const rateLimitResponse = rateLimitMiddleware(req, RATE_LIMITS.otp, 'forgot-password');
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { email } = await req.json();
     if (!email)
       return NextResponse.json(

@@ -1,26 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
+import { requireAuth, isValidUUID } from '@/lib/security';
 
 // Get all active sessions for a user
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get('token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Access token required' }, { status: 401 });
+    // SECURITY: Require authentication
+    const auth = requireAuth(req);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
-
-    // Verify access token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'your-secret-key'
-    ) as { userId: string };
+    const { userId } = auth;
 
     // Get all active sessions for the user
     const sessions = await prisma.userSession.findMany({
       where: {
-        user_id: decoded.userId,
+        user_id: userId,
         is_active: true,
         expires_at: {
           gt: new Date()
@@ -51,28 +46,29 @@ export async function GET(req: NextRequest) {
 // Logout from a specific session
 export async function DELETE(req: NextRequest) {
   try {
-    const { sessionId } = await req.json();
-    const token = req.cookies.get('token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Access token required' }, { status: 401 });
+    // SECURITY: Require authentication
+    const auth = requireAuth(req);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
+    const { userId } = auth;
+
+    const { sessionId } = await req.json();
 
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID required' }, { status: 400 });
     }
 
-    // Verify access token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'your-secret-key'
-    ) as { userId: string };
+    // SECURITY: Validate session ID format
+    if (!isValidUUID(sessionId)) {
+      return NextResponse.json({ error: 'Invalid session ID format' }, { status: 400 });
+    }
 
     // Deactivate the specific session
     const result = await prisma.userSession.updateMany({
       where: {
         id: sessionId,
-        user_id: decoded.userId,
+        user_id: userId,
         is_active: true
       },
       data: {

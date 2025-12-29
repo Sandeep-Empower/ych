@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/security';
 
 export async function GET(req: NextRequest) {
 	try {
+		// SECURITY: Require authentication
+		const auth = requireAuth(req);
+		if (auth instanceof NextResponse) {
+			return auth;
+		}
 		// Get query parameters for pagination and search
 		const { searchParams } = new URL(req.url);
 		const page = parseInt(searchParams.get('page') || '1');
@@ -92,13 +98,12 @@ export async function GET(req: NextRequest) {
 	} catch (error) {
 		console.error('Error fetching companies:', error);
 		return NextResponse.json(
-			{ 
-				success: false, 
-				error: 'Failed to fetch companies' 
-			}, 
+			{
+				success: false,
+				error: 'Failed to fetch companies'
+			},
 			{ status: 500 }
 		);
-	} finally {
-		await prisma.$disconnect();
 	}
+	// NOTE: Do NOT call prisma.$disconnect() here - Prisma handles connection pooling automatically
 } 

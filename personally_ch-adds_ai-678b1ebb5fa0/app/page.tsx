@@ -37,13 +37,12 @@ export default function Login() {
   const { login } = useAuth();
 
   useEffect(() => {
+    // SECURITY: Only remember email, never password (XSS can steal localStorage)
     const remembered = localStorage.getItem("rememberMe") === "true";
     const savedEmail = localStorage.getItem("rememberedEmail") || "";
-    const savedPassword = localStorage.getItem("rememberedPassword") || "";
     setRemember(remembered);
     if (remembered) {
       setUserEmail(savedEmail);
-      setPassword(savedPassword);
     }
   }, []);
 
@@ -77,16 +76,16 @@ export default function Login() {
     }
 
     try {
-      // Save or clear credentials based on remember
+      // SECURITY: Only save email, never password (XSS can steal localStorage)
       if (remember) {
         localStorage.setItem("rememberMe", "true");
         localStorage.setItem("rememberedEmail", userEmail);
-        localStorage.setItem("rememberedPassword", password);
       } else {
         localStorage.removeItem("rememberMe");
         localStorage.removeItem("rememberedEmail");
-        localStorage.removeItem("rememberedPassword");
       }
+      // Clean up any previously stored password (security migration)
+      localStorage.removeItem("rememberedPassword");
 
       const res = await fetch("/api/auth/login", {
         method: "POST",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sanitizeSlug } from '@/lib/utils';
 import { uploadToSpaces } from '@/lib/do-spaces';
+import { requireAuth, isValidUUID } from '@/lib/security';
 
 async function generateUniqueSlug(baseSlug: string, siteId: string) {
   let slug = baseSlug;
@@ -89,11 +90,37 @@ function randomDateWithinLastThreeMonths() {
  *               $ref: '#/components/schemas/Error'
  */
 export async function POST(req: NextRequest) {
+  // SECURITY: Require authentication
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) {
+    return auth;
+  }
+  const { userId } = auth;
+
   const formData = await req.formData();
   const siteId = formData.get('siteId') as string;
   const articlesJson = formData.get('articles') as string;
   const formJson = formData.get('form') as string;
-  
+
+  // SECURITY: Validate siteId format
+  if (!siteId || !isValidUUID(siteId)) {
+    return NextResponse.json({ error: 'Invalid siteId format' }, { status: 400 });
+  }
+
+  // SECURITY: Verify user owns the site
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { user_id: true }
+  });
+
+  if (!site) {
+    return NextResponse.json({ error: 'Site not found' }, { status: 404 });
+  }
+
+  if (site.user_id !== userId) {
+    return NextResponse.json({ error: 'Unauthorized - You do not own this site' }, { status: 403 });
+  }
+
   const articles = JSON.parse(articlesJson);
   const form = JSON.parse(formJson);
   const { contentStyle, tone, niche, language, refreshCycle } = form;
